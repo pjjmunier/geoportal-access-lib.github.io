@@ -678,7 +678,7 @@ CommonService.prototype = {
                 "gp-access-lib" : __WEBPACK_IMPORTED_MODULE_6__package_json___default.a.version
             }, false);
         }
-        
+
         // si le proxy est renseigné, on proxifie l'url du service
         if (bUrlProxified) {
             if (this.options.httpMethod === "GET") {
@@ -3959,7 +3959,7 @@ var GeocodeRequestFactory = {
         if (!myReq.processRequestString()) {
             throw new Error("Error process request (rest) !");
         }
-        let request = myReq.requestString;
+        var request = myReq.requestString;
 
         logger.trace(request);
 
@@ -10121,7 +10121,7 @@ function __checkServiceAttributes (viewContextNode) {
  *      pour des adresses postales ou des 'CadastralParcel' pour des parcelles cadastrales.
  *      D'autres types pourront être rajoutés selon l'évolution du service.
  *      Par défaut, index = 'StreetAddress'.
- * 
+ *
  * @param {Object} options.position - Position du point de référence pour le calcul de proximité exprimée dans le système de référence spécifié par le srs.
  *      @param {Float} options.position.lon - Longitude du point de référence pour le calcul de proximité.
  *      @param {Float} options.position.lat - Latitude du point de référence pour le calcul de proximité.
@@ -10129,10 +10129,10 @@ function __checkServiceAttributes (viewContextNode) {
  * @param {Number} [options.maximumResponses] - Nombre de réponses maximal que l'on souhaite recevoir.
  *      Pas de valeur par défaut.
  *      Si le serveur consulté est celui du Géoportail, la valeur par défaut sera donc celle du service : 20.
- * 
+ *
  * @param {Boolean} [options.returnTrueGeometry] - Booléen indiquant si l'on souhaite récupérer la géométrie vraie des objects géolocalisés.
  *      false par défaut.
- * 
+ *
  *
  * @example
  *   var options = {
@@ -10152,7 +10152,7 @@ function __checkServiceAttributes (viewContextNode) {
  *   };
  * @private
  */
-function Geocode (options) {
+function Geocode (options_) {
     if (!(this instanceof Geocode)) {
         throw new TypeError(__WEBPACK_IMPORTED_MODULE_1__Utils_MessagesResources__["a" /* default */].getMessage("CLASS_CONSTRUCTOR", "Geocode"));
     }
@@ -10163,13 +10163,14 @@ function Geocode (options) {
      */
     this.CLASSNAME = "Geocode";
 
+    this.logger = __WEBPACK_IMPORTED_MODULE_0__Utils_LoggerByDefault__["a" /* default */].getLogger("Gp.Services.Geocode");
+    this.logger.trace("[Constructeur Geocode (options)]");
+
+    var options = this.patchOptionConvertor(options_);
     options.serverUrl = options.serverUrl || "https://geocodage.ign.fr/look4";
 
     // appel du constructeur par heritage
-    __WEBPACK_IMPORTED_MODULE_3__CommonService__["a" /* default */].apply(this, arguments);
-
-    this.logger = __WEBPACK_IMPORTED_MODULE_0__Utils_LoggerByDefault__["a" /* default */].getLogger("Gp.Services.Geocode");
-    this.logger.trace("[Constructeur Geocode (options)]");
+    __WEBPACK_IMPORTED_MODULE_3__CommonService__["a" /* default */].apply(this, [options]);
 
     if (!options.query) {
         throw new Error(__WEBPACK_IMPORTED_MODULE_1__Utils_MessagesResources__["a" /* default */].getMessage("PARAM_MISSING", "query"));
@@ -10190,12 +10191,14 @@ function Geocode (options) {
         this.options.index = options.index = "StreetAddress";
     }
 
-    var filter = Object.keys(options.filters);
-    for (var i = 0; i < filter.length; i++) {
-        var key = filter[i];
-        // on supprime les filtres vides
-        if (!options.filters[key]) {
-            delete this.options.filters[key];
+    if (options.filters) {
+        var filter = Object.keys(options.filters);
+        for (var i = 0; i < filter.length; i++) {
+            var key = filter[i];
+            // on supprime les filtres vides
+            if (!options.filters[key]) {
+                delete this.options.filters[key];
+            }
         }
     }
 
@@ -10215,6 +10218,83 @@ Geocode.prototype = Object.create(__WEBPACK_IMPORTED_MODULE_3__CommonService__["
  * Constructeur (alias)
  */
 Geocode.prototype.constructor = Geocode;
+
+/**
+ * Patch pour la convertion des options vers le nouveau formalisme.
+ *
+ * @param {Object} options_ - options du service
+ * @return {Object} - options
+ */
+Geocode.prototype.patchOptionConvertor = function (options_) {
+    const options = options_;
+
+    if (options.location) {
+        this.logger.warn("The parameter 'location' is deprecated");
+
+        if (!options.query) {
+            options.query = options.location;
+        }
+        delete options.location;
+    }
+
+    if (options.filterOptions) {
+        this.logger.warn("The parameter 'filterOptions' is deprecated");
+
+        if (!options.filters) {
+            options.filters = options.filterOptions;
+
+            if (options.filters.type) {
+                this.logger.warn("The parameter 'filterOptions.type' is deprecated");
+                if (!options.index) {
+                    if (Array.isArray(options.filters.type) && options.filters.type.length > 0) {
+                        options.index = options.filters.type[0];
+                    } else {
+                        options.index = options.filters.type;
+                    }
+                }
+                delete options.filters.type;
+            }
+
+            if (options.filters.bbox) {
+                this.logger.warn("The parameter 'filterOptions.bbox' is deprecated");
+                delete options.filters.bbox;
+            }
+        }
+        delete options.filterOptions;
+    }
+
+    if (options.position) {
+        if (options.position.x) {
+            this.logger.warn("The parameter 'position.x' is deprecated");
+
+            if (!options.position.lon) {
+                options.position.lon = options.position.x;
+            }
+            delete options.position.x;
+        }
+
+        if (options.position.y) {
+            this.logger.warn("The parameter 'position.y' is deprecated");
+
+            if (!options.position.lat) {
+                options.position.lat = options.position.y;
+            }
+            delete options.position.y;
+        }
+    }
+
+    if (options.returnFreeForm) {
+        this.logger.warn("The parameter 'returnFreeForm' is deprecated");
+        delete options.returnFreeForm;
+    }
+
+    if (options.srs) {
+        this.logger.warn("The parameter 'srs' is deprecated");
+        delete options.srs;
+    }
+
+    return options;
+};
 
 /**
  * Création de la requête (overwrite)
@@ -10357,21 +10437,21 @@ GeocodeRequestREST.prototype = {
      * @returns {String} request
      */
     processRequestString : function () {
-        let request = "";
+        var request = "";
 
         // Mapping des options avec le service de l'API REST
         const oParams = new __WEBPACK_IMPORTED_MODULE_2__model_GeocodeParamREST__["a" /* default */](this.settings);
 
         const params = oParams.getParams();
-        for (let i = 0; i < params.length; i++) {
-            let o = params[i];
+        for (var i = 0; i < params.length; i++) {
+            var o = params[i];
             if (request) {
                 request += "&";
             }
             request += o.k + "=" + o.v;
         }
 
-        let index = oParams.getIndex();
+        var index = oParams.getIndex();
 
         if (!this.settings.geocodeMethod || (this.settings.geocodeMethod !== "search" && this.settings.geocodeMethod !== "reverse")) {
             throw new Error("Error geocodeMethod not valid");
@@ -10476,7 +10556,7 @@ GeocodeParamREST.prototype = {
      * @returns {String} les filtres
      */
     getFilters : function () {
-        let filters = {};
+        var filters = {};
         for (var prop in this.filters) {
             if (this.filters.hasOwnProperty(prop) && prop !== "type") {
                 filters["filters[" + prop + "]"] = this.filters[prop];
@@ -10504,7 +10584,7 @@ GeocodeParamREST.prototype = {
     },
 
     /**
-     * Retourne la géométrie de recherche 
+     * Retourne la géométrie de recherche
      * @returns {String} la géométrie de recherche au format json
      */
     getSearchGeometry : function () {
@@ -10628,13 +10708,12 @@ GeocodeResponseParser.prototype = {
      *      sous la forme d'un objet GeocodeResponse, ou un objet littéral exceptionReport si le service a renvoyé une exception.
      */
     parse : function (json) {
-
-        let geocodeResponse = new __WEBPACK_IMPORTED_MODULE_2__Response_model_GeocodeResponse__["a" /* default */]();
+        var geocodeResponse = new __WEBPACK_IMPORTED_MODULE_2__Response_model_GeocodeResponse__["a" /* default */]();
 
         const obj = JSON.parse(json);
 
         if (obj.type === "FeatureCollection") {
-            for (let i = 0 ; i < obj.features.length ; ++i) {
+            for (var i = 0; i < obj.features.length; ++i) {
                 _parseFeature(obj.features[i], geocodeResponse);
             }
         } else if (obj.type === "Feature") {
@@ -10656,25 +10735,25 @@ GeocodeResponseParser.prototype = {
 
 /**
  * Méthode permettant de parser un feature
- * 
+ *
  * @private
- * 
+ *
  * @param {Object} feature
  * @param {Object} geocodeResponse
- * 
+ *
  * @memberof GeocodeResponseParser
  * @return {Object} objet GeocodedLocation
  */
 function _parseFeature (feature, geocodeResponse) {
-    let location = new __WEBPACK_IMPORTED_MODULE_3__Response_model_GeocodedLocation__["a" /* default */]();
+    var location = new __WEBPACK_IMPORTED_MODULE_3__Response_model_GeocodedLocation__["a" /* default */]();
     if (feature.geometry && feature.geometry.type === "Point") {
         location.position = {
-            lon: feature.geometry.coordinates[0],
-            lat: feature.geometry.coordinates[1]
-        }
+            lon : feature.geometry.coordinates[0],
+            lat : feature.geometry.coordinates[1]
+        };
     }
     if (feature.properties) {
-        for (let prop in feature.properties) {
+        for (var prop in feature.properties) {
             if (prop === "_score") {
                 location.accuracy = feature.properties[prop];
             } else if (prop === "_type") {
@@ -10692,29 +10771,28 @@ function _parseFeature (feature, geocodeResponse) {
         if (feature.properties._type === "address") {
             location.matchType = feature.properties.number !== undefined && feature.properties.number !== null ? "street number" : "street";
         }
-        
     }
-    
     geocodeResponse.locations.push(location);
 }
 
 /**
  * Méthode permettant de parser une erreur
- * 
+ *
  * @private
- * 
+ *
  * @param {Object} error
- * 
+ *
  * @memberof GeocodeResponseParser
  * @return {Object}
  */
 function _parseError (error) {
-    return { 
-        exceptionReport: error
-    }
+    return {
+        exceptionReport : error
+    };
 }
 
 /* harmony default export */ __webpack_exports__["a"] = (GeocodeResponseParser);
+
 
 /***/ }),
 /* 62 */
@@ -10746,6 +10824,7 @@ GeocodeResponse.prototype = {
 
 /* harmony default export */ __webpack_exports__["a"] = (GeocodeResponse);
 
+
 /***/ }),
 /* 63 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
@@ -10764,7 +10843,7 @@ GeocodeResponse.prototype = {
  * *Common attributes : *
  *
  * - **trueGeometry** - the 'real life' geometry if different from 'Point' type.
- * 
+ *
  * *if type === "StreetAddress" :*
  *
  * - **number** - Street number.
@@ -10829,6 +10908,7 @@ GeocodedLocation.prototype = {
 
 /* harmony default export */ __webpack_exports__["a"] = (GeocodedLocation);
 
+
 /***/ }),
 /* 64 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
@@ -10872,7 +10952,7 @@ GeocodedLocation.prototype = {
  *          "postalCode", "inseeCode", "type".
  *      Enfin, il permet de filtrer les parcelles cadastrales avec les propriétés :
  *          "codeDepartement", "codeCommune", "nomCommune", "codeCommuneAbs", "codeArrondissement", "section", "numero", "feuille".
- * 
+ *
  * @param {Object} [options.searchGeometry] - Emprise dans laquelle on souhaite effectuer la recherche.
  *      Les propriétés possibles de cet objet sont décrites ci-après.
  *      @param {String} options.searchGeometry.type   - Type de géometrie (Point|Circle|Linestring|Polygon)
@@ -10887,7 +10967,7 @@ GeocodedLocation.prototype = {
  *
  * @param {Number} [options.maximumResponses] - Nombre de réponses maximal que l'on souhaite recevoir.
  *      Pas de valeur par défaut. Si le serveur consulté est celui du Géoportail, la valeur par défaut sera donc celle du service : 20s.
- * 
+ *
  * @param {Boolean} [options.returnTrueGeometry] - Booléen indiquant si l'on souhaite récupérer la géométrie vraie des objects géolocalisés.
  *      false par défaut.
  *
@@ -10916,7 +10996,7 @@ GeocodedLocation.prototype = {
  *
  * @private
  */
-function ReverseGeocode (options) {
+function ReverseGeocode (options_) {
     if (!(this instanceof ReverseGeocode)) {
         throw new TypeError(__WEBPACK_IMPORTED_MODULE_1__Utils_MessagesResources__["a" /* default */].getMessage("CLASS_CONSTRUCTOR", "ReverseGeocode"));
     }
@@ -10927,13 +11007,14 @@ function ReverseGeocode (options) {
      */
     this.CLASSNAME = "ReverseGeocode";
 
+    this.logger = __WEBPACK_IMPORTED_MODULE_0__Utils_LoggerByDefault__["a" /* default */].getLogger("Gp.Services.ReverseGeocode");
+    this.logger.trace("[Constructeur ReverseGeocode (options)]");
+
+    var options = this.patchOptionConvertor(options_);
     options.serverUrl = options.serverUrl || "https://geocodage.ign.fr/look4";
 
     // appel du constructeur par heritage
-    __WEBPACK_IMPORTED_MODULE_3__CommonService__["a" /* default */].apply(this, arguments);
-
-    this.logger = __WEBPACK_IMPORTED_MODULE_0__Utils_LoggerByDefault__["a" /* default */].getLogger("Gp.Services.ReverseGeocode");
-    this.logger.trace("[Constructeur ReverseGeocode (options)]");
+    __WEBPACK_IMPORTED_MODULE_3__CommonService__["a" /* default */].apply(this, [options]);
 
     if (!options.searchGeometry) {
         throw new Error(__WEBPACK_IMPORTED_MODULE_1__Utils_MessagesResources__["a" /* default */].getMessage("PARAM_MISSING", "searchGeometry"));
@@ -10948,12 +11029,14 @@ function ReverseGeocode (options) {
     }
 
     // on teste pour chaque filtre, les conditions suivantes : null ou vide !
-    var filter = Object.keys(options.filters);
-    for (var i = 0; i < filter.length; i++) {
-        var key = filter[i];
-        // on supprime les filtres vides
-        if (!options.filters[key] || Object.keys(options.filters[key]).length === 0) {
-            delete this.options.filters[key];
+    if (options.filters) {
+        var filter = Object.keys(options.filters);
+        for (var i = 0; i < filter.length; i++) {
+            var key = filter[i];
+            // on supprime les filtres vides
+            if (!options.filters[key] || Object.keys(options.filters[key]).length === 0) {
+                delete this.options.filters[key];
+            }
         }
     }
 
@@ -10974,6 +11057,84 @@ ReverseGeocode.prototype = Object.create(__WEBPACK_IMPORTED_MODULE_3__CommonServ
  * Constructeur (alias)
  */
 ReverseGeocode.prototype.constructor = ReverseGeocode;
+
+/**
+ * Patch pour la convertion des options vers le nouveau formalisme.
+ *
+ * @param {Object} options_ - options du service
+ * @return {Object} - options
+ */
+ReverseGeocode.prototype.patchOptionConvertor = function (options_) {
+    const options = options_;
+
+    if (options.filterOptions) {
+        this.logger.warn("The parameter 'filterOptions' is deprecated");
+
+        if (options.filterOptions.type) {
+            this.logger.warn("The parameter 'filterOptions.type' is deprecated");
+            if (!options.index) {
+                if (Array.isArray(options.filterOptions.type) && options.filterOptions.type.length > 0) {
+                    options.index = options.filterOptions.type[0];
+                } else {
+                    options.index = options.filterOptions.type;
+                }
+            }
+        }
+
+        if (options.filterOptions.bbox) {
+            this.logger.warn("The parameter 'filterOptions.bbox' is deprecated");
+            if (!options.searchGeometry) {
+                // convertir la geometrie
+                options.searchGeometry = this.bbox2Json(options.filterOptions.bbox);
+            }
+        }
+
+        if (options.filterOptions.circle) {
+            this.logger.warn("The parameter 'filterOptions.circle' is deprecated");
+            if (!options.searchGeometry) {
+                // convertir la geometrie
+                options.searchGeometry = this.circle2Json(options.filterOptions.circle);
+            }
+        }
+
+        if (options.filterOptions.polygon) {
+            this.logger.warn("The parameter 'filterOptions.polygon' is deprecated");
+            if (!options.searchGeometry) {
+                // convertir la geometrie
+                options.searchGeometry = this.polygon2Json(options.filterOptions.polygon);
+            }
+        }
+
+        delete options.filterOptions;
+    }
+
+    if (options.position) {
+        if (options.position.x) {
+            this.logger.warn("The parameter 'position.x' is deprecated");
+
+            if (!options.position.lon) {
+                options.position.lon = options.position.x;
+            }
+            delete options.position.x;
+        }
+
+        if (options.position.y) {
+            this.logger.warn("The parameter 'position.y' is deprecated");
+
+            if (!options.position.lat) {
+                options.position.lat = options.position.y;
+            }
+            delete options.position.y;
+        }
+    }
+
+    if (options.srs) {
+        this.logger.warn("The parameter 'srs' is deprecated");
+        delete options.srs;
+    }
+
+    return options;
+};
 
 /**
  * (overwrite)
@@ -11024,6 +11185,58 @@ ReverseGeocode.prototype.analyzeResponse = function (error, success) {
     } else {
         error.call(this, new __WEBPACK_IMPORTED_MODULE_2__Exceptions_ErrorService__["a" /* default */](__WEBPACK_IMPORTED_MODULE_1__Utils_MessagesResources__["a" /* default */].getMessage("SERVICE_RESPONSE_EMPTY")));
     }
+};
+
+/**
+ * Patch pour la convertion des options vers le nouveau formalisme.
+ *
+ * @param {Array} bbox - bbox
+ * @return {Object} - geometrie au format json
+ */
+ReverseGeocode.prototype.bbox2Json = function (bbox) {
+    return {
+        type : "Polygon",
+        coordinates : [[
+            [bbox.left, bbox.top],
+            [bbox.right, bbox.top],
+            [bbox.right, bbox.bottom],
+            [bbox.left, bbox.bottom],
+            [bbox.left, bbox.top]
+        ]]
+    };
+};
+
+/**
+ * Patch pour la convertion des options vers le nouveau formalisme.
+ *
+ * @param {Object} circle - circle
+ * @return {Object} - geometrie au format json
+ */
+ReverseGeocode.prototype.circle2Json = function (circle) {
+    return {
+        type : "Circle",
+        radius : circle.radius,
+        coordinates : [[circle.x, circle.y]]
+    };
+};
+
+/**
+ * Patch pour la convertion des options vers le nouveau formalisme.
+ *
+ * @param {Array} polygon - polygon
+ * @return {Object} - geometrie au format json
+ */
+ReverseGeocode.prototype.polygon2Json = function (polygon) {
+    var jsonGeom = {
+        type : "Polygon",
+        coordinates : [[]]
+    };
+
+    for (var coords in polygon) {
+        jsonGeom.coordinates[0].push([coords.x, coords.y]);
+    }
+
+    return jsonGeom;
 };
 
 /**
